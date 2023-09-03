@@ -79,17 +79,17 @@ function game() {
         collider.draw();
     });
 
-    if (lastSpawn > 0.3)  {
-        lastSpawn = 0;
-        colliders.push(new Asteroid(
-            new v2D(Math.random() * mainCanvas.width, 0),
-            new v2D(Math.random() * 200 - 100, Math.random() * 300),
-            Math.random() * 20 + 1));
-    } else {
-        if (dt) {
-            lastSpawn += dt;
-        }
-    }
+    // if (lastSpawn > 0.3)  {
+    //     lastSpawn = 0;
+    //     colliders.push(new Asteroid(
+    //         new v2D(Math.random() * mainCanvas.width, 0),
+    //         new v2D(Math.random() * 200 - 100, Math.random() * 300),
+    //         Math.random() * 20 + 1));
+    // } else {
+    //     if (dt) {
+    //         lastSpawn += dt;
+    //     }
+    // }
 }
 
 
@@ -179,6 +179,12 @@ class Asteroid extends StraightMover {
     }
 }
 
+class BigMama extends Asteroid {
+    constructor(pos, v, radius) {
+        super(pos, v, radius);
+    }
+}   
+
 
 function gameOver() {
     console.log("game over");
@@ -222,6 +228,7 @@ function startGame() {
     } catch (err) {
         console.log(err);
     }
+    colliders.push(new BigMama(new v2D(mainCanvas.width / 2, 60), new v2D(0, 20), 50));
 }
 
 function canvasClick(event) {
