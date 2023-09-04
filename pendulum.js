@@ -249,21 +249,27 @@ class Asteroid extends StraightMover {
         }
     }
     draw() {
-        if (this.state === "exploding") {
-            if (this.fragments.length === 0) {
-                this.explode();
-            }
-            this.fragments.forEach((fragment, i) => {
-                if (fragment.alpha <= 0) {
-                    this.fragments.splice(i, 1);
-                } else {
-                    fragment.update();
+        switch (this.state) {
+            case "exploding":
+                if (this.fragments.length === 0) {
+                    this.explode();
                 }
-            })
-        } else {
-            ctx.drawImage(miniAsteroid[this.miniAsteroidIndex], this.pos.x - this.radius, this.pos.y - this.radius, this.radius * 2, this.radius * 2);
+                this.fragments.forEach((fragment, i) => {
+                    if (fragment.alpha <= 0) {
+                        this.fragments.splice(i, 1);
+                    } else {
+                        fragment.update();
+                    }
+                })
+                if (this.fragments.length === 0) {
+                    this.state = 'exploded';
+                }
+                break;
+            case 'exploded':
+                break;
+            default:
+                ctx.drawImage(miniAsteroid[this.miniAsteroidIndex], this.pos.x - this.radius, this.pos.y - this.radius, this.radius * 2, this.radius * 2);
         }
-
     }
 }
 class AsteroidFragment {
@@ -274,11 +280,14 @@ class AsteroidFragment {
         this.dx = dx;
         this.dy = dy;
         this.alpha = 1;
+        this.colour = {r: 255, g: 165, b: 0}
     }
     draw() {
         ctx.save();
         ctx.globalAlpha = this.alpha;
-        ctx.fillStyle = 'orange';
+        ctx.fillStyle = '#' + this.colour.r.toString(16).padStart(2, '0')
+            + this.colour.g.toString(16).padStart(2, '0')
+            + this.colour.b.toString(16).padStart(2, '0');
 
         /* Begins or reset the path for
            the arc created */
@@ -298,6 +307,10 @@ class AsteroidFragment {
         this.alpha -= 0.02;
         this.x += this.dx;
         this.y += this.dy;
+        this.colour.g -= 8;
+        if (this.colour.g < 0) {
+            this.colour.g = 0;
+        }
     }
 }
 
