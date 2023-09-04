@@ -1,17 +1,23 @@
 let mainCanvas,
-    myVideo, 
+    myVideo,
     ctx,
     bg,
     colliders = [],
     state = "startMenu",
     saucer,
+    bigMama,
+    bigMamaSvgOk,
+    bigMamaSvgNok,
+    miniAsteroid = [],
     t,
     dt,
     score,
     lastSpawn;
+const saucerStartLifePoints = 5,
+    bigMamaStartLifePoints = 100;
 
 function animate() {
-    switch(state) {
+    switch (state) {
         case "startMenu":
             startMenu();
             break;
@@ -25,9 +31,30 @@ function animate() {
     }
     requestAnimationFrame(animate);
 }
-
+    
 function collide(a, b) {
-    return Math.pow(a.pos.x - b.pos.x, 2) + Math.pow(a.pos.y - b.pos.y, 2) < Math.pow(a.radius + b.radius, 2);
+    let aY = (a instanceof BigMama) ? a.pos.y + 110 : a.pos.y;
+    let bY = (b instanceof BigMama) ? b.pos.y + 110 : b.pos.y;
+
+    if (a.radius && b.radius) {
+        return Math.pow(a.pos.x - b.pos.x, 2) + Math.pow(aY - bY, 2) < Math.pow(a.radius + b.radius, 2);
+    } else {
+        console.error("collide function not supported");
+    }
+}
+
+function drawHealthBar(x, y, width, height, percent) {
+    ctx.fillStyle = "grey";
+    ctx.fillRect(x, y, width, height);
+    if (percent > 0.70) {
+        ctx.fillStyle = "green";
+    } else if (percent > 0.30) {
+        ctx.fillStyle = "yellow";
+    } else {
+        ctx.fillStyle = "red";
+    }
+
+    ctx.fillRect(x + 1, y + 1, width * percent - 2, height - 2);
 }
 
 function game() {
@@ -38,7 +65,7 @@ function game() {
     t = newt;
 
     //get position of the ball
-    const locs = getMarkedLocations(ctx, [56,150,215]);
+    const locs = getMarkedLocations(ctx, [56, 150, 215]);
     const center = average(locs);
 
     //we dont need the video anymore
@@ -53,20 +80,23 @@ function game() {
     }
     saucer.draw();
 
-    // move all the bullets and the enemies
+    bigMama.update(dt);
+    bigMama.draw();
+
+    // move all the bullets and the enemies, remove all those whoe goes out of screen or have died
     colliders.forEach((collider, i, object) => {
         collider.update(dt);
-        if ((collider.pos.y < 0) || (collider.pos.y > mainCanvas.height) || (collider.pos.x < 0) || (collider.pos.x > mainCanvas.width)) {  
+        if ((collider.pos.y < 0) || (collider.pos.y > mainCanvas.height) || (collider.pos.x < 0) || (collider.pos.x > mainCanvas.width)) {
             object.splice(i, 1);
         }
-        if (collider.state === "exploding" && t - collider.deathTime > 0.5) {
+        if (collider.state === "exploding" && t - collider.deathTime > 0.25) {
             object.splice(i, 1);
         }
     });
 
     for (let i = 0; i < colliders.length; i++) {
         for (let j = i + 1; j < colliders.length; j++) {
-            if (collide(colliders[i], colliders[j])) {
+            if (colliders[i].state == "alive" && colliders[j].state == "alive" && collide(colliders[i], colliders[j])) {
                 colliders[i].state = "exploding";
                 colliders[j].state = "exploding";
                 colliders[i].deathTime = t;
@@ -75,48 +105,79 @@ function game() {
         }
     }
 
+    colliders.forEach((collider, i, object) => {
+        if (collider.state === "alive") {
+            if ((collider instanceof Asteroid) && collide(collider, saucer)) {
+                if (collider instanceof BigMama) {
+                    saucer.hit(saucerStartLifePoints);
+                } else {
+                    saucer.hit();
+                }
+                collider.state = "exploding";
+            }
+            if (collide(collider, bigMama)) {
+                if (collider instanceof Bullet) {
+                    bigMama.hit();
+                }                
+                collider.state = "exploding";
+            }
+        }
+    });
+
+    if ((saucer.lifePoints <= 0) || (bigMama.lifePoints <= 0)) {
+        state = "gameOver";
+        return;
+    }
+
+    drawHealthBar(80, 10, 100, 20, saucer.lifePoints / saucerStartLifePoints);
+    drawHealthBar(mainCanvas.width - 190, 10, 100, 20, bigMama.lifePoints / bigMamaStartLifePoints);
+
     colliders.forEach((collider) => {
         collider.draw();
     });
 
-    // if (lastSpawn > 0.3)  {
-    //     lastSpawn = 0;
-    //     colliders.push(new Asteroid(
-    //         new v2D(Math.random() * mainCanvas.width, 0),
-    //         new v2D(Math.random() * 200 - 100, Math.random() * 300),
-    //         Math.random() * 20 + 1));
-    // } else {
-    //     if (dt) {
-    //         lastSpawn += dt;
-    //     }
-    // }
+    if (true) {
+    if (lastSpawn > 0.3) {
+        lastSpawn = 0;
+        colliders.push(new Asteroid(
+            new v2D(Math.random() * mainCanvas.width, 0),
+            new v2D(Math.random() * 200 - 100, Math.random() * 300),
+            Math.random() * 20 + 1));
+    } else {
+        if (dt) {
+            lastSpawn += dt;
+        }
+    }
+    }
 }
 
 
 class v2D {
-  constructor(x, y) {
-    this.x = x;
-    this.y = y; 
-  }
-  magnitude() {
-    return Math.sqrt(this.x * this.x + this.y * this.y);
-  }
-  setMagnitude(m) {
-    const mag = this.magnitude();
-    this.x *= m / mag;
-    this.y *= m / mag;
-  }
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+    }
+    magnitude() {
+        return Math.sqrt(this.x * this.x + this.y * this.y);
+    }
+    setMagnitude(m) {
+        const mag = this.magnitude();
+        this.x *= m / mag;
+        this.y *= m / mag;
+    }
 }
 
 class Saucer {
-   constructor() {
+    constructor() {
         this.pos = new v2D();
         this.v = new v2D();
         this.width = 80;
+        this.radius = 45;
         this.bb = new v2D(this.width, this.width * marcianito.height / marcianito.width);
-   }
+        this.lifePoints = saucerStartLifePoints;
+    }
 
-   draw() {
+    draw() {
         let left = this.pos.x - this.bb.x / 2;
         if (left < 0) {
             left = 0;
@@ -125,15 +186,21 @@ class Saucer {
             left = mainCanvas.width - this.bb.x;
         }
 
-        ctx.drawImage(marcianito, left, this.pos.y - this.bb.y /2 - 20, this.bb.x, this.bb.y);
-   }
+        ctx.drawImage(marcianito, left, this.pos.y - this.bb.y / 2 - 20, this.bb.x, this.bb.y);
+    }
 
-   fire(to) {
+    fire(to) {
         const from = new v2D(this.pos.x, this.pos.y - 70);
         let v = new v2D(to.x - from.x, to.y - from.y);
         v.setMagnitude(200);
         colliders.push(new Bullet(from, v));
-   }
+    }
+    hit(i = 1) {
+        this.lifePoints -= i;
+        if (this.lifePoints <= 0) {
+            gameOver();
+        }
+    }
 }
 
 class StraightMover {
@@ -141,6 +208,7 @@ class StraightMover {
         this.pos = pos;
         this.v = v;
         this.radius = radius;
+        this.state = "alive";
     }
 
     update(dt) {
@@ -156,7 +224,11 @@ class Bullet extends StraightMover {
     draw() {
         let p = new Path2D();
         p.arc(this.pos.x, this.pos.y, this.radius, 0, 2 * Math.PI);
-        ctx.fillStyle = "red";
+        if (this.state === "exploding") {
+            ctx.fillStyle = "rgba(200, 200, 0, 0.8)";
+        } else {
+            ctx.fillStyle = "red";
+        }
         ctx.fill(p);
     }
 }
@@ -164,76 +236,169 @@ class Bullet extends StraightMover {
 class Asteroid extends StraightMover {
     constructor(pos, v, radius = 10) {
         super(pos, v, radius);
-        this.state = "alive";
+        this.fragments = [];
+        this.miniAsteroidIndex = Math.floor(Math.random() * 3);
+    }
+    explode() {
+        for (let i = 0; i <= 75; i++) {
+            let dx = (Math.random() - 0.5) * (Math.random() * 6);
+            let dy = (Math.random() - 0.5) * (Math.random() * 6);
+            let radius = Math.random() * this.radius / 4;
+            let fragment = new AsteroidFragment(this.pos.x, this.pos.y, radius, dx, dy);
+            this.fragments.push(fragment);
+        }
     }
     draw() {
-        let p = new Path2D();
-        p.arc(this.pos.x, this.pos.y, this.radius, 0, 2 * Math.PI);
         if (this.state === "exploding") {
-            ctx.fillStyle = "yellow";
+            if (this.fragments.length === 0) {
+                this.explode();
+            }
+            this.fragments.forEach((fragment, i) => {
+                if (fragment.alpha <= 0) {
+                    this.fragments.splice(i, 1);
+                } else {
+                    fragment.update();
+                }
+            })
         } else {
-            ctx.fillStyle = "brown";
+            ctx.drawImage(miniAsteroid[this.miniAsteroidIndex], this.pos.x - this.radius, this.pos.y - this.radius, this.radius * 2, this.radius * 2);
         }
-        
-        ctx.fill(p);
+
+    }
+}
+class AsteroidFragment {
+    constructor(x, y, radius, dx, dy) {
+        this.x = x;
+        this.y = y;
+        this.radius = radius;
+        this.dx = dx;
+        this.dy = dy;
+        this.alpha = 1;
+    }
+    draw() {
+        ctx.save();
+        ctx.globalAlpha = this.alpha;
+        ctx.fillStyle = 'orange';
+
+        /* Begins or reset the path for
+           the arc created */
+        ctx.beginPath();
+
+        /* Some curve is created*/
+        ctx.arc(this.x, this.y, this.radius,
+            0, Math.PI * 2, false);
+
+        ctx.fill();
+
+        /* Restore the recent canvas context*/
+        ctx.restore();
+    }
+    update() {
+        this.draw();
+        this.alpha -= 0.02;
+        this.x += this.dx;
+        this.y += this.dy;
     }
 }
 
 class BigMama extends Asteroid {
     constructor(pos, v, radius) {
         super(pos, v, radius);
+        this.bb = new v2D(this.radius * 2, this.radius * 2 * bigMamaSvgOk.height / bigMamaSvgOk.width);
+        this.lifePoints = bigMamaStartLifePoints;
     }
-}   
+
+    draw() {
+        ctx.drawImage(bigMamaSvgOk, this.pos.x - this.radius, this.pos.y - this.radius, this.bb.x, this.bb.y);
+        //drawCircle(ctx, this.pos.x, this.pos.y + 110, 60, "green");
+    }
+
+    hit() {
+        this.lifePoints--;
+        if (this.lifePoints <= 0) {
+            gameOver();
+        }
+    }
+}
+
+drawCircle = (ctx, x, y, radius, color) => {
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, 2 * Math.PI);
+    ctx.fillStyle = color;
+    ctx.fill();
+}
 
 
 function gameOver() {
     console.log("game over");
-    state = "gameOver";
+    ctx.drawImage(bg, 0, 0, mainCanvas.width, mainCanvas.height);
+    ctx.font = "16px 'Press Start 2P'";
+    if (bigMama.lifePoints > 0) {
+        ctx.drawImage(bigMamaSvgOk, mainCanvas.width / 2 - 75, 40, 150, 150 * bigMamaSvgOk.height / bigMamaSvgOk.width);
+
+        ctx.font = "16px 'Press Start 2P'";
+        ctx.fillStyle = "white";
+        ctx.textAlign = "center";
+        ctx.fillText("You lost!", mainCanvas.width / 2, 2 * mainCanvas.height / 3 + 60);
+        ctx.fillText("Big Mama destroys you!", mainCanvas.width / 2, 2 * mainCanvas.height / 3 + 90);
+    } else {
+        ctx.drawImage(marcianito, 50, 40, 230, 230 * marcianito.height / marcianito.width);
+        ctx.drawImage(bigMamaSvgNok, 300, 40, 150, 150 * bigMamaSvgNok.height / bigMamaSvgNok.width);
+
+        ctx.font = "24px 'Press Start 2P'";
+        ctx.fillStyle = "white";
+        ctx.textAlign = "center";
+        ctx.fillText("You win!", mainCanvas.width / 2, 2 * mainCanvas.height / 3 + 80);
+    }
 }
 
 function isReadyToStart() {
-    return (marcianito.complete && bg.complete && myVideo.readyState === 4);
+    return (marcianito.complete && bg.complete && bigMamaSvgOk.complete && bigMamaSvgNok.complete && myVideo.readyState === 4);
 }
 
 function startMenu() {
     ctx.drawImage(bg, 0, 0, mainCanvas.width, mainCanvas.height);
-    
+
     ctx.font = "50px 'Press Start 2P'";
     if (isReadyToStart()) {
-        ctx.font = "16px 'Press Start 2P'";
+        ctx.font = "15px 'Press Start 2P'";
         ctx.fillStyle = "white";
         ctx.textAlign = "center";
-        ctx.fillText("Destroy all asteroids before", mainCanvas.width / 2 , mainCanvas.height / 3 + 30 );
-        ctx.fillText("the big mama destroys you!", mainCanvas.width / 2 , mainCanvas.height / 3 + 60);
+        ctx.fillText("Beware of little asteroids and", mainCanvas.width / 2, mainCanvas.height / 3 + 30);
+        ctx.fillText("destroy the big mama before you", mainCanvas.width / 2, mainCanvas.height / 3 + 60);
+        ctx.fillText("stop and she gets to you!", mainCanvas.width / 2, mainCanvas.height / 3 + 90);
 
         ctx.font = "24px 'Press Start 2P'";
         ctx.fillStyle = "red";
-        ctx.fillText("Start", mainCanvas.width / 2 , mainCanvas.height * 2 / 3 - 30);
+        ctx.fillText("Start", mainCanvas.width / 2, mainCanvas.height * 2 / 3 - 30);
     } else {
         ctx.fillStyle = "grey";
         ctx.textAlign = "center";
-        ctx.fillText("Loading", mainCanvas.width / 2 , mainCanvas.height / 2);
+        ctx.fillText("Loading", mainCanvas.width / 2, mainCanvas.height / 2);
     }
 }
 
 function startGame() {
     console.log("start game");
-    state = "game";
     saucer = new Saucer();
+    bigMama = new BigMama(new v2D(mainCanvas.width / 2, 60), new v2D(0, 3), 50);
+    state = "game";
+    colliders = [];
     score = 0;
     lastSpawn = 0;
+    t = 0;
+    dt = 0;
     try {
-        myVideo.currentTime = 5.44;
+        myVideo.currentTime = 0;
         myVideo.play();
     } catch (err) {
         console.log(err);
     }
-    colliders.push(new BigMama(new v2D(mainCanvas.width / 2, 60), new v2D(0, 20), 50));
 }
 
 function canvasClick(event) {
     console.log(event);
-    switch(state) {
+    switch (state) {
         case "startMenu":
             if (isReadyToStart()) {
                 startGame();
@@ -243,7 +408,7 @@ function canvasClick(event) {
             saucer.fire(new v2D(event.x, event.y));
             break;
         case "gameOver":
-            console.error("game over state should not be clickable");
+            startGame();
             break;
         default:
             console.log("unknown state");
@@ -252,12 +417,11 @@ function canvasClick(event) {
 
 function main() {
     mainCanvas = document.getElementById("mainCanvas");
-    mainCanvas.willReadFrequently = true;
-    ctx = mainCanvas.getContext("2d");
+    ctx = mainCanvas.getContext("2d", { willReadFrequently: true });
 
     mainCanvas.addEventListener("click", canvasClick);
 
-    myVideo =  document.createElement("video");
+    myVideo = document.createElement("video");
     myVideo.muted = true;
     //myVideo.crossOrigin = "anonymous";
     myVideo.src = "footage.mp4";
@@ -273,6 +437,19 @@ function main() {
 
     marcianito = new Image();
     marcianito.src = "MARCIANITO-01.svg";
+
+    bigMamaSvgOk = new Image();
+    bigMamaSvgOk.src = "BIG_MAMA_OK.svg";
+
+    bigMamaSvgNok = new Image();
+    bigMamaSvgNok.src = "BIG_MAMA_NOK.svg";
+
+    miniAsteroid[0] = new Image();
+    miniAsteroid[0].src = "MINIASTEROIDE_01.svg";
+    miniAsteroid[1] = new Image();
+    miniAsteroid[1].src = "MINIASTEROIDE_02.svg";
+    miniAsteroid[2] = new Image();
+    miniAsteroid[2].src = "MINIASTEROIDE_03.svg";
 
     window.requestAnimationFrame(animate);
 }
