@@ -29,7 +29,7 @@ function animate() {
         default:
             console.log("unknown state");
     }
-    requestAnimationFrame(animate);
+    window.requestAnimationFrame(animate);
 }
     
 function collide(a, b) {
@@ -97,10 +97,8 @@ function game() {
     for (let i = 0; i < colliders.length; i++) {
         for (let j = i + 1; j < colliders.length; j++) {
             if (colliders[i].state == "alive" && colliders[j].state == "alive" && collide(colliders[i], colliders[j])) {
-                colliders[i].state = "exploding";
-                colliders[j].state = "exploding";
-                colliders[i].deathTime = t;
-                colliders[j].deathTime = t;
+                colliders[i].hit();
+                colliders[j].hit();
             }
         }
     }
@@ -113,13 +111,13 @@ function game() {
                 } else {
                     saucer.hit();
                 }
-                collider.state = "exploding";
+                collider.hit();
             }
             if (collide(collider, bigMama)) {
                 if (collider instanceof Bullet) {
                     bigMama.hit();
                 }                
-                collider.state = "exploding";
+                collider.hit();
             }
         }
     });
@@ -211,6 +209,12 @@ class StraightMover {
         this.state = "alive";
     }
 
+    hit() {
+        this.state = "exploding";
+        this.deathTime = t;
+        this.v.setMagnitude(1);
+    }
+
     update(dt) {
         this.pos.x += this.v.x * dt;
         this.pos.y += this.v.y * dt;
@@ -225,7 +229,7 @@ class Bullet extends StraightMover {
         let p = new Path2D();
         p.arc(this.pos.x, this.pos.y, this.radius, 0, 2 * Math.PI);
         if (this.state === "exploding") {
-            ctx.fillStyle = "rgba(200, 200, 0, 0.8)";
+            ctx.fillStyle = "rgba(200, 200, 0, 0.1)";
         } else {
             ctx.fillStyle = "red";
         }
@@ -289,13 +293,11 @@ class AsteroidFragment {
             + this.colour.g.toString(16).padStart(2, '0')
             + this.colour.b.toString(16).padStart(2, '0');
 
-        /* Begins or reset the path for
-           the arc created */
+        /* Begins or reset the path for the arc created */
         ctx.beginPath();
 
         /* Some curve is created*/
-        ctx.arc(this.x, this.y, this.radius,
-            0, Math.PI * 2, false);
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2, false);
 
         ctx.fill();
 
@@ -323,7 +325,6 @@ class BigMama extends Asteroid {
 
     draw() {
         ctx.drawImage(bigMamaSvgOk, this.pos.x - this.radius, this.pos.y - this.radius, this.bb.x, this.bb.y);
-        //drawCircle(ctx, this.pos.x, this.pos.y + 110, 60, "green");
     }
 
     hit() {
@@ -370,13 +371,18 @@ function isReadyToStart() {
 }
 
 function startMenu() {
-    ctx.drawImage(bg, 0, 0, mainCanvas.width, mainCanvas.height);
+    if (!bg.complete || !document.fonts.check("50px 'Press Start 2P'")) {
+        return;
+    }
 
+    ctx.drawImage(bg, 0, 0, mainCanvas.width, mainCanvas.height);
+    
     ctx.font = "50px 'Press Start 2P'";
+    ctx.textAlign = "center";
     if (isReadyToStart()) {
         ctx.font = "15px 'Press Start 2P'";
         ctx.fillStyle = "white";
-        ctx.textAlign = "center";
+        ctx.fillText("Click on the screen to fire.", mainCanvas.width / 2, mainCanvas.height / 3);
         ctx.fillText("Beware of little asteroids and", mainCanvas.width / 2, mainCanvas.height / 3 + 30);
         ctx.fillText("destroy the big mama before you", mainCanvas.width / 2, mainCanvas.height / 3 + 60);
         ctx.fillText("stop and she gets to you!", mainCanvas.width / 2, mainCanvas.height / 3 + 90);
@@ -386,7 +392,6 @@ function startMenu() {
         ctx.fillText("Start", mainCanvas.width / 2, mainCanvas.height * 2 / 3 - 30);
     } else {
         ctx.fillStyle = "grey";
-        ctx.textAlign = "center";
         ctx.fillText("Loading", mainCanvas.width / 2, mainCanvas.height / 2);
     }
 }
