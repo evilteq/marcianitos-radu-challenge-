@@ -415,7 +415,7 @@ function startGame() {
 }
 
 function canvasClick(event) {
-    console.log(event);
+    //console.log(event);
     switch (state) {
         case "startMenu":
             if (isReadyToStart()) {
