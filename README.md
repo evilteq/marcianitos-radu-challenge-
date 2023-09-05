@@ -2,7 +2,7 @@
 
 This is a entry for the competition https://www.youtube.com/watch?v=qaq24krSKow
 
-You get a video of pendulum moving as "input", and you can do with it whatever you desire.
+You get, **not included in this repo**, a video of pendulum moving as "input", and you can do with it whatever you desire.
 So we decided to make a space shooter, because why not.
 
 It's an excuse like any other to learn canvas and image processing inside the browser.
